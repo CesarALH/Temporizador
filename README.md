@@ -1,12 +1,14 @@
-# Temporizador
-Temporizador configurable con 4 botones
+# Timer
+Configurable Timer with 4 Buttons
 
-Este codigo esta hecho para crear un temporizador con un microcontrolador MSP430F5529
-materiales usados:
-Display de 4 digitos de anodo comun
-Transistores NPN para anodo comun
-Resistencias
+This code is designed to create a timer with an MSP430F5529 microcontroller.
+
+Materials used:
+
+4-digit display common annode
+NPN transistors for common annode
+Resistors
 4 pushbuttons
-Cables jumpers
-Optoacoplador
+Wire jumpers
+Optocoupler
 Buzzer
