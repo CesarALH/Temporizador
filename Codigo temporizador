@@ -1,0 +1,248 @@
+#include <msp430.h>
+
+// Funciones
+void displayDigit(int num);
+void showNumber(int number);
+void retraso(unsigned int x);
+void apagarDigitos();
+void encenderDigito(int i);
+void leerBotones();
+void contarTiempo();
+void sonarBuzzer();
+
+// Variables globales
+unsigned int minutes = 0;
+unsigned int seconds = 0;
+unsigned int contador = 0;
+
+enum Estado {CONFIG=0, RUNNING=1, PAUSED=2};
+enum Estado estado = CONFIG;
+
+int main(void)
+{
+    WDTCTL = WDTPW | WDTHOLD;
+
+    // Pines de segmentos
+    P4DIR |= BIT1 | BIT2;
+    P2DIR |= BIT7;
+    P3DIR |= BIT2 | BIT3;
+    P6DIR |= BIT6;
+    P1DIR |= BIT6;
+
+    // Pines de dígitos (transistores)
+    P6DIR |= BIT4;        // Dígito 1
+    P7DIR |= BIT0;        // Dígito 2
+    P3DIR |= BIT6 | BIT5; // Dígito 3 y 4
+
+    // Pines de botones
+    P1DIR &=~ (BIT2 | BIT3 | BIT4 | BIT5);
+    P1REN |= BIT2 | BIT3 | BIT4 |BIT5;
+    P1OUT |= BIT2 | BIT3 | BIT4 |BIT5;
+
+    // Pin del buzzer
+    P4DIR |= BIT3;
+
+
+    // Apaga todos los dígitos al inicio
+    apagarDigitos();
+
+    while (1)
+    {
+        leerBotones();
+        if (estado == RUNNING)
+            contarTiempo();
+
+        int numero = minutes * 100 + seconds;
+            showNumber(numero);
+            sonarBuzzer();
+
+
+    }
+}
+
+//  FUNCIONES
+void sonarBuzzer(){
+
+    unsigned int sonar=0;
+    unsigned int i;
+
+    if (seconds == 0 && minutes == 0 && estado == CONFIG) {
+        for (i = 0; i < 4; i++) {
+            P4OUT |= BIT3;
+            retraso(100);
+        }
+    } else {
+        P4OUT &= ~BIT3;
+    }
+
+}
+void leerBotones() {
+
+    static int ultimoSET = 1;
+    static int ultimoSTART = 1;
+
+    // SET
+    if (!(P1IN & BIT2) && ultimoSET) {
+        estado = (estado == CONFIG) ? RUNNING : CONFIG;
+        retraso(100);
+    }
+    ultimoSET = P1IN & BIT2;
+
+    // START/PAUSE
+    if (!(P1IN & BIT3) && ultimoSTART) {
+        if (estado == RUNNING) estado = PAUSED;
+        else if (estado == PAUSED) estado = RUNNING;
+        retraso(100);
+    }
+    ultimoSTART = P1IN & BIT3;
+
+    // En configuración: MIN / SEC
+    if (estado == CONFIG) {
+        if (!(P1IN & BIT4)) {
+            minutes = (minutes + 1) % 100;
+            retraso(200);
+        }
+        if (!(P1IN & BIT5)) {
+            seconds = (seconds + 10) % 60;
+            retraso(200);
+        }
+    }
+}
+
+void contarTiempo() {
+
+    contador++;
+    if (contador >= 165) {  // Control de tiempo
+        contador = 0;
+
+        if (seconds == 0) {
+            if (minutes > 0) {
+                minutes--;
+                seconds = 59;
+            } else {
+                estado = CONFIG;  // Terminado
+            }
+        } else {
+            seconds--;
+        }
+    }
+}
+
+void apagarDigitos() {
+    P6OUT |= BIT4;
+    P7OUT |= BIT0;
+    P3OUT |= BIT6 | BIT5;
+}
+
+void encenderDigito(int i) {
+    switch(i)
+    {
+        case 0: P6OUT &= ~BIT4; break;
+        case 1: P7OUT &= ~BIT0; break;
+        case 2: P3OUT &= ~BIT6; break;
+        case 3: P3OUT &= ~BIT5; break;
+    }
+}
+
+void showNumber(int number) {
+    int digits[4];
+    digits[0] = (number / 1000) % 10;
+    digits[1] = (number / 100) % 10;
+    digits[2] = (number / 10) % 10;
+    digits[3] = number % 10;
+
+    int i;
+    for (i = 0; i < 4; i++) {
+        apagarDigitos();
+        displayDigit(digits[i]);
+        encenderDigito(i);
+        retraso(10);
+    }
+}
+
+void displayDigit(int num) {
+    P4OUT |= BIT1 | BIT2;
+    P2OUT |= BIT7;
+    P3OUT |= BIT2 | BIT3;
+    P6OUT |= BIT6;
+    P1OUT |= BIT6;
+
+    switch (num)
+    {
+    case 0:
+                P4OUT &= ~BIT1;
+                P4OUT &= ~BIT2;
+                P2OUT &= ~BIT7;
+                P3OUT &= ~BIT2;
+                P6OUT &= ~BIT6;
+                P1OUT &= ~BIT6;
+                break;
+            case 1:
+                P4OUT &= ~BIT2;
+                P2OUT &= ~BIT7;
+                break;
+            case 2:
+                P4OUT &= ~BIT1;
+                P4OUT &= ~BIT2;
+                P3OUT &= ~BIT2;
+                P6OUT &= ~BIT6;
+                P3OUT &= ~BIT3;
+                break;
+            case 3:
+                P4OUT &= ~BIT1;
+                P4OUT &= ~BIT2;
+                P2OUT &= ~BIT7;
+                P3OUT &= ~BIT2;
+                P3OUT &= ~BIT3;
+                break;
+            case 4:
+                P4OUT &= ~BIT2;
+                P2OUT &= ~BIT7;
+                P1OUT &= ~BIT6;
+                P3OUT &= ~BIT3;
+                break;
+            case 5:
+                P4OUT &= ~BIT1;
+                P2OUT &= ~BIT7;
+                P3OUT &= ~BIT2;
+                P1OUT &= ~BIT6;
+                P3OUT &= ~BIT3;
+                break;
+            case 6:
+                P4OUT &= ~BIT1;
+                P2OUT &= ~BIT7;
+                P3OUT &= ~BIT2;
+                P6OUT &= ~BIT6;
+                P1OUT &= ~BIT6;
+                P3OUT &= ~BIT3;
+                break;
+            case 7:
+                P4OUT &= ~BIT1;
+                P4OUT &= ~BIT2;
+                P2OUT &= ~BIT7;
+                break;
+            case 8:
+                P4OUT &= ~BIT1;
+                P4OUT &= ~BIT2;
+                P2OUT &= ~BIT7;
+                P3OUT &= ~BIT2;
+                P6OUT &= ~BIT6;
+                P1OUT &= ~BIT6;
+                P3OUT &= ~BIT3;
+                break;
+            case 9:
+                P4OUT &= ~BIT1;
+                P4OUT &= ~BIT2;
+                P2OUT &= ~BIT7;
+                P1OUT &= ~BIT6;
+                P3OUT &= ~BIT3;
+                break;
+    }
+}
+
+void retraso(unsigned int x) {
+    volatile unsigned int y=0, b=0;
+    for(y=0;y<x;y++) {
+        for(b=0;b<x;b++) { }
+    }
+}
